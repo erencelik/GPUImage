@@ -945,7 +945,20 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
                                    nil];*/
         }
         
-        assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
+        if([fileType isEqualToString:AVFileTypeQuickTimeMovie]){
+            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
+        }else{
+            //create audio format hint. required for MPEG-4 container. (quicktime doesn't need this)
+            CMAudioFormatDescriptionRef audioFormatDescription;
+            AudioStreamBasicDescription basicDescription = {0};
+            basicDescription.mSampleRate = [[AVAudioSession sharedInstance] sampleRate];
+            basicDescription.mFormatID = kAudioFormatMPEG4AAC;
+            basicDescription.mFormatFlags = kMPEG4Object_AAC_Main;
+            CMAudioFormatDescriptionCreate(NULL, &basicDescription, 0, NULL, 0, NULL, NULL, &audioFormatDescription);
+            
+            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings sourceFormatHint:audioFormatDescription];
+        }
+        
         [assetWriter addInput:assetWriterAudioInput];
         assetWriterAudioInput.expectsMediaDataInRealTime = _encodingLiveVideo;
     }

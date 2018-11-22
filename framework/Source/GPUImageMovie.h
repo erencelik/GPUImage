@@ -7,6 +7,7 @@
  */
 @protocol GPUImageMovieDelegate <NSObject>
 
+- (void)willRestartPlayingMovie;
 - (void)didCompletePlayingMovie;
 @end
 
@@ -31,7 +32,7 @@
 @property(readwrite, nonatomic) BOOL shouldRepeat;
 
 /** This specifies the progress of the process on a scale from 0 to 1.0. A value of 0 means the process has not yet begun, A value of 1.0 means the conversaion is complete.
-    This property is not key-value observable.
+ This property is not key-value observable.
  */
 @property(readonly, nonatomic) float progress;
 
@@ -54,8 +55,10 @@
 - (BOOL)readNextVideoFrameFromOutput:(AVAssetReaderOutput *)readerVideoTrackOutput;
 - (BOOL)readNextAudioSampleFromOutput:(AVAssetReaderOutput *)readerAudioTrackOutput;
 - (void)startProcessing;
+- (void)startProcessing:(CMTime)atTime withEndTime:(CMTime)endTime;
 - (void)endProcessing;
 - (void)cancelProcessing;
-- (void)processMovieFrame:(CMSampleBufferRef)movieSampleBuffer; 
+- (void)processMovieFrame:(CMSampleBufferRef)movieSampleBuffer;
 
 @end
+
