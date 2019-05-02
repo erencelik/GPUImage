@@ -35,6 +35,8 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
     BOOL audioEncodingIsFinished, videoEncodingIsFinished;
 
     BOOL isRecording;
+    
+    BOOL videoCallbackResolved;
 }
 
 // Movie recording
@@ -141,6 +143,8 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
     });
         
     [self initializeMovieWithOutputSettings:outputSettings];
+    
+    videoCallbackResolved = YES;
 
     return self;
 }
@@ -501,9 +505,9 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
         {
             [assetWriter startWriting];
         }
-        videoQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.videoReadingQueue", GPUImageDefaultQueueAttribute());
+        videoQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.videoReadingQueue", NULL);
         [assetWriterVideoInput requestMediaDataWhenReadyOnQueue:videoQueue usingBlock:^{
-            if( _paused )
+            if( _paused || !videoCallbackResolved)
             {
                 //NSLog(@"video requestMediaDataWhenReadyOnQueue paused");
                 // if we don't sleep, we'll get called back almost immediately, chewing up CPU
@@ -511,10 +515,14 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
                 return;
             }
             //NSLog(@"video requestMediaDataWhenReadyOnQueue begin");
-            while( assetWriterVideoInput.readyForMoreMediaData && ! _paused )
+            if ( assetWriterVideoInput.readyForMoreMediaData && videoCallbackResolved && ! _paused )
             {
+                videoCallbackResolved = NO;
                 if( videoInputReadyCallback && ! videoInputReadyCallback() && ! videoEncodingIsFinished )
                 {
+                    // at the end everything is valid
+                    videoCallbackResolved = YES;
+                    
                     runAsynchronouslyOnContextQueue(_movieWriterContext, ^{
                         if( assetWriter.status == AVAssetWriterStatusWriting && ! videoEncodingIsFinished )
                         {
@@ -530,7 +538,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
     
     if (audioInputReadyCallback != NULL)
     {
-        audioQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.audioReadingQueue", GPUImageDefaultQueueAttribute());
+        audioQueue = dispatch_queue_create("com.sunsetlakesoftware.GPUImage.audioReadingQueue", NULL);
         [assetWriterAudioInput requestMediaDataWhenReadyOnQueue:audioQueue usingBlock:^{
             if( _paused )
             {
@@ -819,6 +827,8 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
         write();
         
         [inputFramebufferForBlock unlock];
+        
+        videoCallbackResolved = YES;
     });
 }
 
@@ -945,20 +955,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
                                    nil];*/
         }
         
-        if([fileType isEqualToString:AVFileTypeQuickTimeMovie]){
-            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
-        }else{
-            //create audio format hint. required for MPEG-4 container. (quicktime doesn't need this)
-            CMAudioFormatDescriptionRef audioFormatDescription;
-            AudioStreamBasicDescription basicDescription = {0};
-            basicDescription.mSampleRate = [[AVAudioSession sharedInstance] sampleRate];
-            basicDescription.mFormatID = kAudioFormatMPEG4AAC;
-            basicDescription.mFormatFlags = kMPEG4Object_AAC_Main;
-            CMAudioFormatDescriptionCreate(NULL, &basicDescription, 0, NULL, 0, NULL, NULL, &audioFormatDescription);
-            
-            assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings sourceFormatHint:audioFormatDescription];
-        }
-        
+        assetWriterAudioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioOutputSettings];
         [assetWriter addInput:assetWriterAudioInput];
         assetWriterAudioInput.expectsMediaDataInRealTime = _encodingLiveVideo;
     }

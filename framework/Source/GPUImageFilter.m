@@ -733,7 +733,7 @@ NSString *const kGPUImagePassthroughFragmentShaderString = SHADER_STRING
 {
     if (!isEndProcessing)
     {
-        isEndProcessing = YES;
+        //isEndProcessing = YES;
         
         for (id<GPUImageInput> currentTarget in targets)
         {
